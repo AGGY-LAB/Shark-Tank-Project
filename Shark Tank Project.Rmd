@@ -1,0 +1,300 @@
+
+---
+title: "Shark Tank Project"
+author: "Agnes Munee"
+date: "2/25/2022"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+
+## Introduction: Executive Summary
+The target variable or the variable to be predicted is deal This predicts whether the entrepreneur will get a deal or not.
+Since we are going to be predicting between 2 categories (TRUE or FALSE), we will use Two-Class Classification. The machine learning models that can be used for this class of project are:
+
+
+
+1.	Decision Trees
+2.	Random Forest
+3.	Logistic Regression
+4.  K Nearest Neighbors
+
+
+## Methods and Analysis
+
+
+Install the packages to be used:
+```{r,message=FALSE,warning=FALSE}
+library(tidyverse)
+library(caret)
+
+```
+
+
+
+
+ data Cleaning
+ 
+```{r,echo=FALSE,message=FALSE,eval=FALSE}
+
+project<-read.csv("Shark Tank.csv")
+str(project)
+
+```
+
+There are variables that need to be transfomed into factors;
+These are:
+
+deal -   This is the target variable
+
+
+ description - This variable describes the nature of the idea/business presented.   
+Each business idea has its own unique description.No much analyses can be done on this variable.
+
+$epidode - This is the episode where each business idea was presented.
+This project has compiled project for 29 episodes.
+
+```{r}
+project<-read.csv("Shark Tank.csv")
+length(unique(project$episode))
+project%>%mutate(deal=factor(deal),episode=factor(episode))%>%group_by(deal)%>%ggplot(aes(episode,fill=deal))+geom_bar()
+```
+```{r}
+project%>%group_by(episode)%>%summarize(n=n(),n_false=round(sum(deal=="False")/n*100,0),n_true=round(sum(deal=="True")/n*100,0))%>%arrange(n)%>%as.data.frame()
+n_episode<-project%>%group_by(episode)%>%summarize(n=n(),n_false=round(sum(deal=="False")/n*100,0),n_true=round(sum(deal=="True")/n*100,0))%>%arrange(n)%>%as.data.frame()
+cor(n_episode$episode,n_episode$n_false)
+cor(n_episode$episode,n_episode$n_true)
+```
+
+From the above analysis, there seems to be a negative correlation between the number of episode and not getting a deal, i.e, the probability of getting a deal diminishes in later episodes.
+The first episodes in a series have a higher chance of giving an entrepreneur a deal.
+
+
+ category
+```{r}
+length(unique(project$category))
+```
+
+There are 54 unique categories of each project presented to the sharks.
+
+```{r}
+      n_category<- project%>%group_by(category)%>%summarize(n=n(),n_false=round(sum(deal=="False")/n*100,0),n_true=round(sum(deal=="True")/n*100,0))%>%arrange(n)%>%as.data.frame()   
+
+project%>%mutate(deal=factor(deal),category=factor(category))%>%group_by(deal)%>%ggplot(aes(category,fill=deal))+geom_bar()+theme(axis.text.x =element_text(angle = 90))
+```
+
+There is a strong relation between the category and whether an entrepreneur gets the deal or not.
+
+
+
+ askedFor
+This is the amount that the entreprener asks for from the sharks.
+This is a continuous variable.
+
+exchangeForStake
+
+This is the percentage of the business that the investor asked for in exchange for the
+
+ valuation
+This is the value of the business.
+
+ season  
+This is the season that the episodes 
+```{r}
+unique(project$season)
+```
+This project contains project for the 6 seasons that the show aired.
+
+episode.season 
+This is the episode and the season that the show aired.
+```{r}
+unique(project$episode.season)
+```
+There are 122 unique combinations of episode and season
+
+Multiple.Entreprenuers
+This indicates whether more than one investor made an offer to the entrepreneur (i,e TRUE) , or only one investor made an offer, (i.e FALSE)
+
+ Shark1, shark2, shark3, shark4 and shark5 - are the investors that are present to the entrepreneur's business pitch
+
+```{r}
+unique(project$shark1)
+
+```
+
+```{r}
+unique(project$shark2)
+```
+```{r}
+unique(project$shark3)
+```
+
+```{r}
+unique(project$shark4)
+```
+```{r}
+unique(project$shark5)
+```
+We can check the number of offers given by each shark.
+```{r}
+table(project$shark1,project$deal)
+table(project$shark2,project$deal)
+table(project$shark3,project$deal)
+table(project$shark4,project$deal)
+table(project$shark5,project$deal)
+```
+
+Next, we will transform project.
+Some variables will be transformed into factors
+-deal
+-episode
+-category
+-season
+-shark1
+-shark2
+shark3
+-shark4
+-shark5
+-episode.season
+-multiple.Entreprenuers
+
+```{r}
+project_trn<-project%>%mutate(deal=factor(deal),episode=factor(episode),category=factor(category),season=factor(season),shark1=factor(shark1),shark2=factor(shark2),shark3=factor(shark3),shark4=factor(shark4),shark5=factor(shark5),episode.season=factor(episode.season),Multiple.Entreprenuers=factor(Multiple.Entreprenuers))
+```
+```{r}
+str(project_trn)
+```
+
+
+## Modeling Approach
+
+split the project into train,test and validation sets.
+```{r}
+set.seed(1)
+index_test<-createDataPartition(project_trn$deal,times = 1,p=0.5,list = FALSE)
+train<-project_trn[-index_test,]
+test<-project_trn[index_test,]
+dim(train)
+dim(test)
+```
+
+
+We will start our modelling with our first Machine Learning Algorithm
+
+
+# 1. Classification (Decision) Trees - Rpart
+
+```{r,warning=FALSE}
+set.seed(1)
+train_rpart<-train(deal ~episode+askedFor+exchangeForStake+valuation +season +shark1+shark2+shark3+shark4+shark5+Multiple.Entreprenuers,method="rpart", data=train)
+y_hat_rpart<-predict(train_rpart,test)
+rpart_Accuracy<-confusionMatrix(y_hat_rpart,test$deal)$overall[["Accuracy"]]
+rpart_Accuracy
+
+```
+
+```{r}
+Results<-data.frame(Model="Decision Trees",Accuracy=rpart_Accuracy)
+Results
+
+```
+This Accuracy is very low, ( below 0.5) and thus we have to continue looking for a better model.
+
+
+# 2.Random Forest
+
+Random forest will address the shortcoings of the above decison tree, and thus giving a higher Accuracy.
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+library(randomForest)
+```
+
+
+```{r}
+library(caret)
+set.seed(1)
+train_rf <- randomForest(deal ~episode+askedFor+exchangeForStake+valuation +season +shark1+shark2+shark3+shark4+shark5+Multiple.Entreprenuers, data =train)
+deal_hat<-predict(train_rf,test)
+rf_Accuracy<-confusionMatrix(deal_hat,test$deal)$overall["Accuracy"]
+```
+```{r}
+Results<-rbind(Results,data.frame(Model="RandomForest",Accuracy=rf_Accuracy))
+Results
+```
+
+The Accuracy is lower than that of the Decison Tree, and thus we will try cross validation.
+
+# Random Forest with crossvalidation
+
+```{r,warning=FALSE}
+set.seed(1)
+train_rf_cv <- train(deal ~episode+askedFor+exchangeForStake+valuation +season +shark1+shark2+shark3+shark4+shark5+Multiple.Entreprenuers,
+      method = "Rborist",
+      tuneGrid = data.frame(predFixed = 2, minNode = c(3, 50)),
+      data = train)
+y_hat_rf_cv<-predict(train_rf_cv, test)
+rf_cv_Accuracy<-confusionMatrix(y_hat_rf_cv,test$deal)$overall["Accuracy"]
+```
+
+
+```{r}
+Results<-rbind(Results,data.frame(Model="RandomForest with Cross Validation",Accuracy=rf_cv_Accuracy))
+Results
+```
+
+The Random Forest after cross validation has improved our Accuracy.
+
+
+
+# 3.Logistic Regression
+
+```{r,warning=FALSE}
+set.seed(1)
+train_glm<-train(deal ~episode+askedFor+exchangeForStake+valuation +season +shark1+shark2+shark3+shark4+shark5+Multiple.Entreprenuers,method="glm",data=train)
+y_hat_glm<-predict(train_glm,test)
+glm_Accuracy<-confusionMatrix(y_hat_glm,test$deal)$overall[["Accuracy"]]
+```
+
+```{r}
+Results<-rbind(Results,data.frame(Model="Logistic Regression",Accuracy=glm_Accuracy))
+Results
+```
+The glm model gives us a lower Accuracy. 
+
+# 4. K Nearest Neighbours
+
+```{r,warning=FALSE}
+set.seed(1)
+train_knn <- train(deal ~episode+askedFor+exchangeForStake+valuation +season +shark1+shark2+shark3+shark4+shark5+Multiple.Entreprenuers, method = "knn", 
+                   data = train,
+                   tuneGrid = data.frame(k = seq(9, 71, 2)))
+
+control <- trainControl(method = "cv", number = 10, p = .9)
+
+train_knn_cv <- train(deal ~episode+askedFor+exchangeForStake+valuation +season +shark1+shark2+shark3+shark4+shark5+Multiple.Entreprenuers, method = "knn", 
+                      data= train,
+                      tuneGrid = data.frame(k = seq(9, 71, 2)),
+                      trControl = control)
+knn_Accuracy<-confusionMatrix(predict(train_knn_cv, test, type = "raw"),
+               test$deal)$overall["Accuracy"]
+```
+
+
+```{r}
+Results<-rbind(Results,data.frame(Model="KNN",Accuracy=knn_Accuracy))
+Results
+```
+
+## Conclusion
+
+RandomForest with Cross Validation gives the highest  Accuracy
+
+
+
+
+
+
+
+
+
